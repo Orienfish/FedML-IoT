@@ -70,6 +70,9 @@ def register(args, uuid):
             self.batch_size = training_task_args['batch_size']
             self.frequency_of_the_test = training_task_args['frequency_of_the_test']
             self.is_mobile = training_task_args['is_mobile']
+            self.backend = training_task_args['backend']
+            self.mqtt_host = training_task_args['mqtt_host']
+            self.mqtt_port = training_task_args['mqtt_port']
 
     args = Args()
     return client_ID, args
@@ -195,7 +198,10 @@ if __name__ == '__main__':
                             args, model_trainer)
 
     size = args.client_num_per_round + 1
-    client_manager = FedAVGClientManager(args, trainer, rank=client_ID, size=size, backend="MQTT")
+    client_manager = FedAVGClientManager(args, trainer, rank=client_ID, size=size,
+                                         backend="MQTT",
+                                         mqtt_host=args.mqtt_host,
+                                         mqtt_port=args.mqtt_port)
     client_manager.run()
     client_manager.start_training()
 
