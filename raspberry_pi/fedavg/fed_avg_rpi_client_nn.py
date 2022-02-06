@@ -14,6 +14,7 @@ from FedML.fedml_api.distributed.fedavg.FedAVGTrainer import FedAVGTrainer
 from FedML.fedml_api.distributed.fedavg.FedAvgClientManager import FedAVGClientManager
 
 from FedML.fedml_api.data_preprocessing.MNIST.data_loader import load_partition_data_mnist
+from FedML.fedml_api.data_preprocessing.FashionMNIST.data_loader import load_partition_data_fashionmnist
 from FedML.fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from FedML.fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
 from FedML.fedml_api.data_preprocessing.cinic10.data_loader import load_partition_data_cinic10
@@ -23,7 +24,7 @@ from FedML.fedml_api.model.cv.mobilenet import mobilenet
 from FedML.fedml_api.model.cv.resnet import resnet56
 from FedML.fedml_api.model.linear.lr import LogisticRegression
 from FedML.fedml_api.model.nlp.rnn import RNN_OriginalFedAvg
-from FedML.fedml_api.model.nn.NN import CNN_MNIST, CNN_CIFAR10
+from FedML.fedml_api.model.nn.NN import CNN_MNIST, CNN_FashionMNIST, CNN_CIFAR10
 
 
 def add_args(parser):
@@ -95,41 +96,34 @@ def init_training_device(process_ID, fl_worker_num, gpu_num_per_machine):
 
 
 def load_data(args, dataset_name):
-    if dataset_name == "mnist":
-        logging.info("load_data. dataset_name = %s" % dataset_name)
-        client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
-        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num = load_partition_data_mnist(args.batch_size,
-                                              train_path="./../FedML/data/MNIST/train",
-                                              test_path="./../FedML/data/MNIST/test")
-        """
-        For shallow NN or linear models, 
-        we uniformly sample a fraction of clients each round (as the original FedAvg paper)
-        """
-        args.client_num_in_total = client_num
-    elif dataset_name == "shakespeare":
+    if dataset_name == "shakespeare":
         logging.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_shakespeare(args.batch_size)
         args.client_num_in_total = client_num
     else:
-        if dataset_name == "cifar10":
+        if dataset_name == "mnist":
+            data_loader = load_partition_data_mnist
+        elif dataset_name == "fashionmnist":
+            data_loader = load_partition_data_fashionmnist
+        elif dataset_name == "cifar10":
             data_loader = load_partition_data_cifar10
         elif dataset_name == "cifar100":
             data_loader = load_partition_data_cifar100 # Not tested
         elif dataset_name == "cinic10":
             data_loader = load_partition_data_cinic10 # Not tested
         else:
-            data_loader = load_partition_data_cifar10
+            raise ValueError('dataset not supported: {}'.format(args.dataset))
 
-        print("============================Starting loading cifar10==========================#")
+        print("============================Starting loading {}==========================#".format(args.dataset))
+        data_dir = './../../../data/' + args.dataset
         train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num = data_loader(args.dataset, args.data_dir, args.partition_method,
+        class_num = data_loader(args.dataset, data_dir, args.partition_method,
                                 args.partition_alpha, args.client_num_in_total, args.batch_size,
                                 args.data_size_per_client)
-        print("=================================cifar10 loaded===============================#")
+        print("================================={} loaded===============================#".format(args.dataset))
 
     dataset = [train_data_num, test_data_num, train_data_global, test_data_global,
                train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
@@ -150,6 +144,8 @@ def create_model(args, model_name, output_dim):
         model = mobilenet(class_num=output_dim)
     elif model_name == "nn" and args.dataset == "mnist":
         model = CNN_MNIST()
+    elif model_name == "nn" and args.dataset == "fashionmnist":
+        model = CNN_FashionMNIST()
     elif model_name == "nn" and args.dataset == "cifar10":
         model = CNN_CIFAR10()
     return model
