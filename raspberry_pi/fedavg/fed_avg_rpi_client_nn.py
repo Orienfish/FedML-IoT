@@ -74,6 +74,7 @@ def register(args, uuid):
             self.backend = training_task_args['backend']
             self.mqtt_host = training_task_args['mqtt_host']
             self.mqtt_port = training_task_args['mqtt_port']
+            self.trial = training_task_args['trial']
 
     args = Args()
     return client_ID, args
