@@ -13,9 +13,7 @@ from FedML.fedml_api.distributed.fedavg.MyModelTrainer import MyModelTrainer
 from FedML.fedml_api.distributed.fedavg.FedAVGTrainer import FedAVGTrainer
 from FedML.fedml_api.distributed.fedavg.FedAvgClientManager import FedAVGClientManager
 
-from FedML.fedml_api.data_preprocessing.MNIST.data_loader import load_partition_data_mnist
-from FedML.fedml_api.data_preprocessing.FashionMNIST.data_loader import load_partition_data_fashionmnist
-from FedML.fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
+from FedML.fedml_api.data_preprocessing.load_data import load_partition_data
 from FedML.fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
 from FedML.fedml_api.data_preprocessing.cinic10.data_loader import load_partition_data_cinic10
 from FedML.fedml_api.data_preprocessing.shakespeare.data_loader import load_partition_data_shakespeare
@@ -57,7 +55,9 @@ def register(args, uuid):
             self.dataset = training_task_args['dataset']
             self.data_dir = training_task_args['data_dir']
             self.partition_method = training_task_args['partition_method']
+            self.partition_label = training_task_args['partition_label']
             self.partition_alpha = training_task_args['partition_alpha']
+            self.partition_secondary = training_task_args['partition_secondary']
             self.model = training_task_args['model']
             self.client_num_per_round = training_task_args['client_num_per_round']
             self.client_num_in_total = training_task_args['client_num_in_total']
@@ -103,28 +103,42 @@ def load_data(args, dataset_name):
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_shakespeare(args.batch_size)
         args.client_num_in_total = client_num
-    else:
-        if dataset_name == "mnist":
-            data_loader = load_partition_data_mnist
-        elif dataset_name == "fashionmnist":
-            data_loader = load_partition_data_fashionmnist
-        elif dataset_name == "cifar10":
-            data_loader = load_partition_data_cifar10
-        elif dataset_name == "cifar100":
+    elif dataset_name == "cifar100" or dataset_name == "cinic10":
+        if dataset_name == "cifar100":
             data_loader = load_partition_data_cifar100 # Not tested
-        elif dataset_name == "cinic10":
+        else: # cinic10
             data_loader = load_partition_data_cinic10 # Not tested
-        else:
-            raise ValueError('dataset not supported: {}'.format(args.dataset))
 
-        print("============================Starting loading {}==========================#".format(args.dataset))
+        print(
+            "============================Starting loading {}==========================#".format(
+                args.dataset))
         data_dir = './../../../data/' + args.dataset
         train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, data_dir, args.partition_method,
-                                args.partition_alpha, args.client_num_in_total, args.batch_size,
+                                args.partition_alpha, args.client_num_in_total,
+                                args.batch_size)
+        print(
+            "================================={} loaded===============================#".format(
+                args.dataset))
+    elif dataset_name == "mnist" or dataset_name == "fashionmnist" or \
+        dataset_name == "cifar10":
+        data_loader = load_partition_data
+        print(
+            "============================Starting loading {}==========================#".format(
+                args.dataset))
+        data_dir = './../../../data/' + args.dataset
+        train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
+        class_num = data_loader(args.dataset, data_dir, args.partition_method,
+                                args.partition_label, args.partition_alpha, args.partition_secondary,
+                                args.client_num_in_total, args.batch_size,
                                 args.data_size_per_client)
-        print("================================={} loaded===============================#".format(args.dataset))
+        print(
+            "================================={} loaded===============================#".format(
+                args.dataset))
+    else:
+        raise ValueError('dataset not supported: {}'.format(args.dataset))
 
     dataset = [train_data_num, test_data_num, train_data_global, test_data_global,
                train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
