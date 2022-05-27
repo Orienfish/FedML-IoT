@@ -6,23 +6,31 @@ import time
 
 import numpy as np
 import requests
+
 import torch
+import torch.nn as nn
+import torch_hd.hdlayers as hd
+from torch.utils.data import DataLoader, random_split, TensorDataset
+from torchmetrics.functional import accuracy
+import torchvision.transforms as transforms
+
+from pl_bolts.models.self_supervised import SimCLR
+# from cifarDataModule import CifarData
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../")))
-from FedML.fedml_api.distributed.fedavg.MyModelTrainer import MyModelTrainer
-from FedML.fedml_api.distributed.fedavg.FedAVGTrainer import FedAVGTrainer
-from FedML.fedml_api.distributed.fedavg.FedAvgClientManager import FedAVGClientManager
+from FedML.fedml_api.distributed.BaselineCNN.cnn_ModelTrainer import MyModelTrainer
+from FedML.fedml_api.distributed.BaselineCNN.cnn_Trainer import BaseCNN_Trainer
+from FedML.fedml_api.distributed.BaselineCNN.cnn_ClientManager import BaseCNNClientManager
 
 from FedML.fedml_api.data_preprocessing.load_data import load_partition_data
 from FedML.fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
 from FedML.fedml_api.data_preprocessing.cinic10.data_loader import load_partition_data_cinic10
 from FedML.fedml_api.data_preprocessing.shakespeare.data_loader import load_partition_data_shakespeare
 
-from FedML.fedml_api.model.cv.mobilenet import mobilenet
-from FedML.fedml_api.model.cv.resnet import resnet56
-from FedML.fedml_api.model.linear.lr import LogisticRegression
-from FedML.fedml_api.model.nlp.rnn import RNN_OriginalFedAvg
-from FedML.fedml_api.model.nn.NN import CNN_MNIST, CNN_FashionMNIST, CNN_CIFAR10
+from FedML.fedml_api.model.cnn_Baseline import FashionMNIST_Net
+from FedML.fedml_api.model.cnn_Baseline import MNIST_Net
+from FedML.fedml_api.model.cnn_Baseline import Cifar10_Net
+
 
 
 def add_args(parser):
@@ -36,13 +44,14 @@ def add_args(parser):
 
 def register(args, uuid):
     str_device_UUID = uuid
-    URL = args.server_ip + "/api/register"
+    URL = args.server_ip + "api/register"
 
     # defining a params dict for the parameters to be sent to the API
     PARAMS = {'device_id': str_device_UUID}
 
     # sending get request and saving the response as response object
     r = requests.post(url=URL, params=PARAMS)
+    print(r)
     result = r.json()
     client_ID = result['client_id']
     # executorId = result['executorId']
@@ -51,30 +60,25 @@ def register(args, uuid):
 
     class Args:
         def __init__(self):
-            self.momentum = training_task_args['momentum']
             self.dataset = training_task_args['dataset']
             self.data_dir = training_task_args['data_dir']
             self.partition_method = training_task_args['partition_method']
-            self.partition_label = training_task_args['partition_label']
             self.partition_alpha = training_task_args['partition_alpha']
             self.partition_secondary = training_task_args['partition_secondary']
-            self.model = training_task_args['model']
+            self.partition_label = training_task_args['partition_label']
+            self.data_size_per_client = training_task_args['data_size_per_client']
+            self.D = training_task_args['D']
             self.client_num_per_round = training_task_args['client_num_per_round']
             self.client_num_in_total = training_task_args['client_num_in_total']
-            self.data_size_per_client = training_task_args['data_size_per_client']
             self.comm_round = training_task_args['comm_round']
             self.epochs = training_task_args['epochs']
-            self.client_optimizer = training_task_args['client_optimizer']
             self.lr = training_task_args['lr']
             self.momentum = training_task_args['momentum']
-            self.wd = training_task_args['wd']
             self.batch_size = training_task_args['batch_size']
             self.frequency_of_the_test = training_task_args['frequency_of_the_test']
-            self.is_mobile = training_task_args['is_mobile']
             self.backend = training_task_args['backend']
             self.mqtt_host = training_task_args['mqtt_host']
             self.mqtt_port = training_task_args['mqtt_port']
-            self.trial = training_task_args['trial']
 
     args = Args()
     return client_ID, args
@@ -144,32 +148,23 @@ def load_data(args, dataset_name):
                train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
     return dataset
 
-def create_model(args, model_name, output_dim):
-    logging.info("create_model. model_name = %s, output_dim = %s" % (model_name, output_dim))
-    model = None
-    if model_name == "lr" and args.dataset == "cifar10":
-        model = LogisticRegression(32 * 32 * 3, output_dim)    #Dim?
-        args.client_optimizer = "sgd"
-    elif model_name == "rnn" and args.dataset == "shakespeare":
-        model = RNN_OriginalFedAvg(28 * 28, output_dim)
-        args.client_optimizer = "sgd"
-    elif model_name == "resnet56":
-        model = resnet56(class_num=output_dim)
-    elif model_name == "mobilenet":
-        model = mobilenet(class_num=output_dim)
-    elif model_name == "nn" and args.dataset == "mnist":
-        model = CNN_MNIST()
-    elif model_name == "nn" and args.dataset == "fashionmnist":
-        model = CNN_FashionMNIST()
-    elif model_name == "nn" and args.dataset == "cifar10":
-        model = CNN_CIFAR10()
+
+def create_model(args):
+    if args.dataset == "mnist":
+        model = MNIST_Net()
+    elif args.dataset == "fashionmnist":
+        model = FashionMNIST_Net()
+    elif args.dataset == "cifar10":
+        model = Cifar10_Net()
+    else:
+        print("Invalid dataset")
+        exit(0)
+
     return model
 
 
-"""
-python mobile_client_simulator.py --client_uuid '0'
-python mobile_client_simulator.py --client_uuid '1'
-"""
+
+
 if __name__ == '__main__':
     # parse python script input parameters
     parser = argparse.ArgumentParser()
@@ -179,40 +174,46 @@ if __name__ == '__main__':
     client_ID, args = register(main_args, uuid)
     logging.info("client_ID = " + str(client_ID))
     logging.info("dataset = " + str(args.dataset))
-    logging.info("model = " + str(args.model))
+    # logging.info("model = " + str(args.model))
     logging.info("client_num_per_round = " + str(args.client_num_per_round))
     client_index = client_ID - 1
 
-    # Set the random seed. The np.random seed determines the dataset partition.
-    # The torch_manual_seed determines the initial weight.
-    # We fix these two, so that we can reproduce the result.
-    np.random.seed(0)
-    torch.manual_seed(10)
 
     logging.info("client_ID = %d, size = %d" % (client_ID, args.client_num_per_round))
     device = init_training_device(client_ID - 1, args.client_num_per_round - 1, 4)
+    # device = torch.device("cudo:0" if torch.cuda.is_available() else "cpu")
 
     # load data
     dataset = load_data(args, args.dataset)
     [train_data_num, test_data_num, train_data_global, test_data_global,
      train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
 
-    # create model.
-    # Note if the model is DNN (e.g., ResNet), the training will be very slow.
-    # In this case, please use our FedML distributed version (./fedml_experiments/distributed_fedavg)
-    model = create_model(args, model_name=args.model, output_dim=dataset[7])
-    model_trainer = MyModelTrainer(model)
+
+    model = create_model(args)
+    
+     
+    model_trainer = MyModelTrainer(model,args,device)
     model_trainer.set_id(client_index)
+    
+    # trash
+    device = torch.device('cpu')
 
     # start training
-    trainer = FedAVGTrainer(client_index, train_data_local_dict, train_data_local_num_dict, test_data_local_dict, train_data_num, device,
+    trainer = BaseCNN_Trainer(client_index, train_data_local_dict, train_data_local_num_dict, test_data_local_dict, train_data_num, device,
                             args, model_trainer)
 
     size = args.client_num_per_round + 1
-    client_manager = FedAVGClientManager(args, trainer, rank=client_ID, size=size,
-                                         backend="MQTT",
-                                         mqtt_host=args.mqtt_host,
-                                         mqtt_port=args.mqtt_port)
+    
+    print("mqtt port: ", args.mqtt_port)
+    
+#     client_manager = FedHDClientManager(args, trainer, rank=client_ID, size=size,
+#                                          backend="MQTT",
+#                                          mqtt_host=args.mqtt_host,
+#                                          mqtt_port=args.mqtt_port)
+    
+    client_manager = BaseCNNClientManager(args.mqtt_port, args.mqtt_host, args, trainer, rank=client_ID, size=size,backend="MQTT")
+                                       
+
     client_manager.run()
     client_manager.start_training()
 
