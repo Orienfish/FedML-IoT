@@ -9,12 +9,11 @@ import requests
 
 import torch
 import torch.nn as nn
-import torch_hd.hdlayers as hd
+#import torch_hd.hdlayers as hd
 from torch.utils.data import DataLoader, random_split, TensorDataset
-from torchmetrics.functional import accuracy
 import torchvision.transforms as transforms
 
-from pl_bolts.models.self_supervised import SimCLR
+#from pl_bolts.models.self_supervised import SimCLR
 # from cifarDataModule import CifarData
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../")))
@@ -44,7 +43,7 @@ def add_args(parser):
 
 def register(args, uuid):
     str_device_UUID = uuid
-    URL = args.server_ip + "api/register"
+    URL = args.server_ip + "/api/register"
 
     # defining a params dict for the parameters to be sent to the API
     PARAMS = {'device_id': str_device_UUID}
@@ -60,6 +59,7 @@ def register(args, uuid):
 
     class Args:
         def __init__(self):
+            self.method = training_task_args['method']
             self.dataset = training_task_args['dataset']
             self.data_dir = training_task_args['data_dir']
             self.partition_method = training_task_args['partition_method']
@@ -67,18 +67,20 @@ def register(args, uuid):
             self.partition_secondary = training_task_args['partition_secondary']
             self.partition_label = training_task_args['partition_label']
             self.data_size_per_client = training_task_args['data_size_per_client']
-            self.D = training_task_args['D']
+            # self.D = training_task_args['D']
             self.client_num_per_round = training_task_args['client_num_per_round']
             self.client_num_in_total = training_task_args['client_num_in_total']
             self.comm_round = training_task_args['comm_round']
             self.epochs = training_task_args['epochs']
             self.lr = training_task_args['lr']
             self.momentum = training_task_args['momentum']
+            self.rou = training_task_args['rou']
             self.batch_size = training_task_args['batch_size']
             self.frequency_of_the_test = training_task_args['frequency_of_the_test']
             self.backend = training_task_args['backend']
             self.mqtt_host = training_task_args['mqtt_host']
             self.mqtt_port = training_task_args['mqtt_port']
+            self.trial = training_task_args['trial']
 
     args = Args()
     return client_ID, args
@@ -173,11 +175,16 @@ if __name__ == '__main__':
 
     client_ID, args = register(main_args, uuid)
     logging.info("client_ID = " + str(client_ID))
+    logging.info("method = " + str(args.method))
     logging.info("dataset = " + str(args.dataset))
-    # logging.info("model = " + str(args.model))
     logging.info("client_num_per_round = " + str(args.client_num_per_round))
     client_index = client_ID - 1
 
+    # Set the random seed. The np.random seed determines the dataset partition.
+    # The torch_manual_seed determines the initial weight.
+    # We fix these two, so that we can reproduce the result.
+    np.random.seed(args.trial)
+    torch.manual_seed(args.trial)
 
     logging.info("client_ID = %d, size = %d" % (client_ID, args.client_num_per_round))
     device = init_training_device(client_ID - 1, args.client_num_per_round - 1, 4)
@@ -188,19 +195,18 @@ if __name__ == '__main__':
     [train_data_num, test_data_num, train_data_global, test_data_global,
      train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
 
-
     model = create_model(args)
-    
-     
-    model_trainer = MyModelTrainer(model,args,device)
+
+    model_trainer = MyModelTrainer(model, args, device)
     model_trainer.set_id(client_index)
     
     # trash
     device = torch.device('cpu')
 
     # start training
-    trainer = BaseCNN_Trainer(client_index, train_data_local_dict, train_data_local_num_dict, test_data_local_dict, train_data_num, device,
-                            args, model_trainer)
+    trainer = BaseCNN_Trainer(client_index, train_data_local_dict,
+                              train_data_local_num_dict, test_data_local_dict,
+                              train_data_num, device, args, model_trainer)
 
     size = args.client_num_per_round + 1
     
@@ -211,10 +217,11 @@ if __name__ == '__main__':
 #                                          mqtt_host=args.mqtt_host,
 #                                          mqtt_port=args.mqtt_port)
     
-    client_manager = BaseCNNClientManager(args.mqtt_port, args.mqtt_host, args, trainer, rank=client_ID, size=size,backend="MQTT")
-                                       
+    client_manager = BaseCNNClientManager(args.mqtt_port, args.mqtt_host, args, trainer,
+                                          rank=client_ID, size=size, backend="MQTT")
 
     client_manager.run()
+    client_manager.init_register_to_server()
     client_manager.start_training()
 
     time.sleep(100000)
