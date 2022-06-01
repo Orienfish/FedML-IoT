@@ -74,6 +74,7 @@ def register(args, uuid):
             self.epochs = training_task_args['epochs']
             self.lr = training_task_args['lr']
             self.momentum = training_task_args['momentum']
+            self.rou = training_task_args['rou']
             self.batch_size = training_task_args['batch_size']
             self.frequency_of_the_test = training_task_args['frequency_of_the_test']
             self.backend = training_task_args['backend']
