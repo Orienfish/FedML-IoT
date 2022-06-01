@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 #import torch_hd.hdlayers as hd
 from torch.utils.data import DataLoader, random_split, TensorDataset
-from torchmetrics.functional import accuracy
 import torchvision.transforms as transforms
 
 #from pl_bolts.models.self_supervised import SimCLR
@@ -186,7 +185,6 @@ if __name__ == '__main__':
     np.random.seed(args.trial)
     torch.manual_seed(args.trial)
 
-
     logging.info("client_ID = %d, size = %d" % (client_ID, args.client_num_per_round))
     device = init_training_device(client_ID - 1, args.client_num_per_round - 1, 4)
     # device = torch.device("cudo:0" if torch.cuda.is_available() else "cpu")
@@ -198,15 +196,16 @@ if __name__ == '__main__':
 
     model = create_model(args)
 
-    model_trainer = MyModelTrainer(model,args,device)
+    model_trainer = MyModelTrainer(model, args, device)
     model_trainer.set_id(client_index)
     
     # trash
     device = torch.device('cpu')
 
     # start training
-    trainer = BaseCNN_Trainer(client_index, train_data_local_dict, train_data_local_num_dict, test_data_local_dict, train_data_num, device,
-                            args, model_trainer)
+    trainer = BaseCNN_Trainer(client_index, train_data_local_dict,
+                              train_data_local_num_dict, test_data_local_dict,
+                              train_data_num, device, args, model_trainer)
 
     size = args.client_num_per_round + 1
     
@@ -217,10 +216,11 @@ if __name__ == '__main__':
 #                                          mqtt_host=args.mqtt_host,
 #                                          mqtt_port=args.mqtt_port)
     
-    client_manager = BaseCNNClientManager(args.mqtt_port, args.mqtt_host, args, trainer, rank=client_ID, size=size,backend="MQTT")
-                                       
+    client_manager = BaseCNNClientManager(args.mqtt_port, args.mqtt_host, args, trainer,
+                                          rank=client_ID, size=size, backend="MQTT")
 
     client_manager.run()
+    client_manager.init_register_to_server()
     client_manager.start_training()
 
     time.sleep(100000)
