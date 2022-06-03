@@ -222,6 +222,5 @@ if __name__ == '__main__':
 
     client_manager.run()
     client_manager.init_register_to_server()
-    client_manager.start_training()
 
     time.sleep(100000)
