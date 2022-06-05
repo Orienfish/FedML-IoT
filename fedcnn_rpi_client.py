@@ -221,6 +221,5 @@ if __name__ == '__main__':
                                           rank=client_ID, size=size, backend="MQTT")
 
     client_manager.run()
-    client_manager.send_register_to_server()
 
     time.sleep(100000)
