@@ -65,6 +65,8 @@ def register(args, uuid):
             self.partition_method = training_task_args['partition_method']
             self.partition_alpha = training_task_args['partition_alpha']
             self.partition_secondary = training_task_args['partition_secondary']
+            self.partition_min_cls = training_task_args['partition_min_cls']
+            self.partition_max_cls = training_task_args['partition_max_cls']
             self.partition_label = training_task_args['partition_label']
             self.data_size_per_client = training_task_args['data_size_per_client']
             # self.D = training_task_args['D']
@@ -138,6 +140,7 @@ def load_data(args, dataset_name):
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, data_dir, args.partition_method,
                                 args.partition_label, args.partition_alpha, args.partition_secondary,
+                                args.parition_min_cls, args.partition_max_cls,
                                 args.client_num_in_total, args.batch_size,
                                 args.data_size_per_client)
         print(
