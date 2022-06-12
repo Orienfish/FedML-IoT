@@ -16,7 +16,7 @@ import torchvision.transforms as transforms
 #from pl_bolts.models.self_supervised import SimCLR
 # from cifarDataModule import CifarData
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../")))
+#sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../")))
 from FedML.fedml_api.distributed.BaselineCNN.cnn_ModelTrainer import MyModelTrainer
 from FedML.fedml_api.distributed.BaselineCNN.cnn_Trainer import BaseCNN_Trainer
 from FedML.fedml_api.distributed.BaselineCNN.cnn_ClientManager import BaseCNNClientManager
