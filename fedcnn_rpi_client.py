@@ -19,7 +19,7 @@ import torchvision.transforms as transforms
 #sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../")))
 from FedML.fedml_api.distributed.BaselineCNN.cnn_ModelTrainer import MyModelTrainer
 from FedML.fedml_api.distributed.BaselineCNN.cnn_Trainer import BaseCNN_Trainer
-from FedML.fedml_api.distributed.BaselineCNN.cnn_ClientManager import BaseCNNClientManager
+from FedML.fedml_api.distributed.BaselineCNN.cnnClientManager import BaseCNNClientManager
 
 from FedML.fedml_api.data_preprocessing.load_data import load_partition_data
 from FedML.fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -70,7 +70,7 @@ def register(args, uuid):
             self.partition_label = training_task_args['partition_label']
             self.data_size_per_client = training_task_args['data_size_per_client']
             # self.D = training_task_args['D']
-            self.client_num_per_round = training_task_args['client_num_per_round']
+            self.client_num_per_gateway = training_task_args['client_num_per_gateway']
             self.client_num_in_total = training_task_args['client_num_in_total']
             self.comm_round = training_task_args['comm_round']
             self.epochs = training_task_args['epochs']
@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
     model_trainer = MyModelTrainer(model, args, device)
     model_trainer.set_id(client_index)
-    
+
     # trash
     device = torch.device('cpu')
 
@@ -212,14 +212,14 @@ if __name__ == '__main__':
                               train_data_num, device, args, model_trainer)
 
     size = args.client_num_per_round + 1
-    
+
     print("mqtt port: ", args.mqtt_port)
-    
+
 #     client_manager = FedHDClientManager(args, trainer, rank=client_ID, size=size,
 #                                          backend="MQTT",
 #                                          mqtt_host=args.mqtt_host,
 #                                          mqtt_port=args.mqtt_port)
-    
+
     client_manager = BaseCNNClientManager(args.mqtt_port, args.mqtt_host, args, trainer,
                                           rank=client_ID, size=size, backend="MQTT")
 
