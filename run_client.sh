@@ -14,6 +14,6 @@ echo $client_id
 
 while true
 do
-  python3 fedcnn_rpi_client.py --server_ip http://132.239.17.132:5000 --client_uuid $client_id 2>&1 | tee output.log
+  python3 fedcnn_rpi_client.py --server_ip http://132.239.17.132:5000 --client_uuid $client_id 2>&1 | tee output_$client_id.log
   sleep 60s
 done
