@@ -36,7 +36,7 @@ def add_args(parser):
     parser.add_argument('--server_ip', type=str, default="http://127.0.0.1:5000",
                         help='IP address of the FedML server')
     parser.add_argument('--client_uuid', type=str, default="0",
-                        help='number of workers in a distributed cluster')
+                        help='the ID of the client/gateway')
     args = parser.parse_args()
     return args
 
@@ -72,8 +72,10 @@ def register(args, uuid):
             # self.D = training_task_args['D']
             self.client_num_per_gateway = training_task_args['client_num_per_gateway']
             self.client_num_in_total = training_task_args['client_num_in_total']
+            self.gateway_num_in_total = training_task_args['gateway_num_in_total']
             self.comm_round = training_task_args['comm_round']
             self.epochs = training_task_args['epochs']
+            self.client_optimizer = training_task_args['client_optimizer']
             self.lr = training_task_args['lr']
             self.momentum = training_task_args['momentum']
             self.rou = training_task_args['rou']
@@ -180,8 +182,9 @@ if __name__ == '__main__':
     logging.info("client_ID = " + str(client_ID))
     logging.info("method = " + str(args.method))
     logging.info("dataset = " + str(args.dataset))
-    logging.info("client_num_per_round = " + str(args.client_num_per_round))
-    client_index = client_ID - 1
+    logging.info("client_num_per_gateway = " + str(args.client_num_per_gateway))
+    client_offset = args.gateway_num_in_total + 1
+    client_index = client_ID - client_offset
 
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
@@ -189,8 +192,8 @@ if __name__ == '__main__':
     np.random.seed(args.trial)
     torch.manual_seed(args.trial)
 
-    logging.info("client_ID = %d, size = %d" % (client_ID, args.client_num_per_round))
-    device = init_training_device(client_ID - 1, args.client_num_per_round - 1, 4)
+    logging.info("client_ID = %d, size = %d" % (client_ID, args.client_num_per_gateway))
+    device = init_training_device(client_ID - 1, args.client_num_per_gateway - 1, 4)
     # device = torch.device("cudo:0" if torch.cuda.is_available() else "cpu")
 
     # load data
@@ -211,7 +214,7 @@ if __name__ == '__main__':
                               train_data_local_num_dict, test_data_local_dict,
                               train_data_num, device, args, model_trainer)
 
-    size = args.client_num_per_round + 1
+    size = args.client_num_per_gateway + 1
 
     print("mqtt port: ", args.mqtt_port)
 
