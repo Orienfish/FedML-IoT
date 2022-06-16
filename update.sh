@@ -1,2 +1,2 @@
-cd FedML; git pull origin master; cd ..;
-git pull origin master;
+cd FedML; git pull origin hierarchy; cd ..;
+git pull origin hierarchy;
