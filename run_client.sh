@@ -5,7 +5,7 @@
 
 if [ $# -eq 0 ]
   then
-    offset=3
+    offset=4
     client_id=$(($offset+3))
 else
   client_id=$1
