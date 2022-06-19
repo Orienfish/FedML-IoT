@@ -225,7 +225,7 @@ if __name__ == '__main__':
     dataset = load_data(args, args.dataset)
     [train_data_num, test_data_num, train_data_global, test_data_global,
      train_data_local_num_dict, train_data_local_dict, test_data_local_dict,
-     class_num, traindata_cls_counts] = dataset
+     class_num] = dataset
 
     model = create_model(args)
 
