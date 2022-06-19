@@ -22,14 +22,16 @@ from FedML.fedml_api.distributed.BaselineCNN.cnn_Trainer import BaseCNN_Trainer
 from FedML.fedml_api.distributed.BaselineCNN.cnnClientManager import BaseCNNClientManager
 
 from FedML.fedml_api.data_preprocessing.load_data import load_partition_data
-from FedML.fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
-from FedML.fedml_api.data_preprocessing.cinic10.data_loader import load_partition_data_cinic10
-from FedML.fedml_api.data_preprocessing.shakespeare.data_loader import load_partition_data_shakespeare
+from FedML.fedml_api.data_preprocessing.load_data import load_partition_data_shakespeare
+from FedML.fedml_api.data_preprocessing.load_data import load_partition_data_HAR
+from FedML.fedml_api.data_preprocessing.load_data import load_partition_data_HPWREN
 
-from FedML.fedml_api.model.cnn_Baseline import FashionMNIST_Net
-from FedML.fedml_api.model.cnn_Baseline import MNIST_Net
-from FedML.fedml_api.model.cnn_Baseline import Cifar10_Net
-
+from FedML.fedml_api.model.Baseline.FashionMNIST import FashionMNIST_Net
+from FedML.fedml_api.model.Baseline.MNIST import MNIST_Net
+from FedML.fedml_api.model.Baseline.CIFAR10 import CIFAR10_Net
+from FedML.fedml_api.model.Baseline.shakespeare import Shakespeare_Net
+from FedML.fedml_api.model.Baseline.HAR import HAR_Net
+from FedML.fedml_api.model.Baseline.HPWREN import HPWREN_Net
 
 
 def add_args(parser):
@@ -107,33 +109,49 @@ def init_training_device(process_ID, fl_worker_num, gpu_num_per_machine):
 
 
 def load_data(args, dataset_name):
-    traindata_cls_counts = None
     if dataset_name == "shakespeare":
-        logging.info("load_data. dataset_name = %s" % dataset_name)
-        client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
-        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num = load_partition_data_shakespeare(args.batch_size)
-        args.client_num_in_total = client_num
-    elif dataset_name == "cifar100" or dataset_name == "cinic10":
-        if dataset_name == "cifar100":
-            data_loader = load_partition_data_cifar100 # Not tested
-        else: # cinic10
-            data_loader = load_partition_data_cinic10 # Not tested
-
         print(
             "============================Starting loading {}==========================#".format(
                 args.dataset))
-        data_dir = './../data/' + args.dataset
+        logging.info("load_data. dataset_name = %s" % dataset_name)
         train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num = data_loader(args.dataset, data_dir, args.partition_method,
-                                args.partition_alpha, args.client_num_in_total,
-                                args.batch_size)
+        class_num = load_partition_data_shakespeare(args.batch_size, "FedML/data/shakespeare")
+        # args.client_num_in_total = len(train_data_local_dict)
         print(
             "================================={} loaded===============================#".format(
                 args.dataset))
+
+    elif dataset_name == "har":
+        print(
+            "============================Starting loading {}==========================#".format(
+                args.dataset))
+        logging.info("load_data. dataset_name = %s" % dataset_name)
+        train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
+        class_num = load_partition_data_HAR(args.batch_size, "FedML/data/HAR")
+        # args.client_num_in_total = len(train_data_local_dict)
+        print(
+            "================================={} loaded===============================#".format(
+                args.dataset))
+
+
+    elif dataset_name == "hpwren":
+        print(
+            "============================Starting loading {}==========================#".format(
+                args.dataset))
+        logging.info("load_data. dataset_name = %s" % dataset_name)
+        train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
+        class_num = load_partition_data_HPWREN(args.batch_size, "FedML/data/HPWREN")
+        # args.client_num_in_total = len(train_data_local_dict)
+        print(
+            "================================={} loaded===============================#".format(
+                args.dataset))
+
+
     elif dataset_name == "mnist" or dataset_name == "fashionmnist" or \
-        dataset_name == "cifar10":
+            dataset_name == "cifar10":
         data_loader = load_partition_data
         print(
             "============================Starting loading {}==========================#".format(
@@ -141,23 +159,20 @@ def load_data(args, dataset_name):
         data_dir = './../data/' + args.dataset
         train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num, traindata_cls_counts = \
-            data_loader(args.dataset, data_dir, args.partition_method,
-                        args.partition_label, args.partition_alpha, args.partition_secondary,
-                        args.partition_min_cls, args.partition_max_cls,
-                        args.client_num_in_total, args.batch_size,
-                        args.data_size_per_client)
+        class_num = data_loader(args.dataset, data_dir, args.partition_method,
+                                args.partition_label, args.partition_alpha, args.partition_secondary,
+                                args.client_num_in_total, args.batch_size,
+                                args.data_size_per_client)
         print(
             "================================={} loaded===============================#".format(
                 args.dataset))
+
     else:
         raise ValueError('dataset not supported: {}'.format(args.dataset))
 
     dataset = [train_data_num, test_data_num, train_data_global, test_data_global,
-               train_data_local_num_dict, train_data_local_dict, test_data_local_dict,
-               class_num, traindata_cls_counts]
+               train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
     return dataset
-
 
 
 def create_model(args):
@@ -166,7 +181,13 @@ def create_model(args):
     elif args.dataset == "fashionmnist":
         model = FashionMNIST_Net()
     elif args.dataset == "cifar10":
-        model = Cifar10_Net()
+        model = CIFAR10_Net()
+    elif args.dataset == "shakespeare":
+        model = Shakespeare_Net()
+    elif args.dataset == "har":
+        model = HAR_Net()
+    elif args.dataset == "hpwren":
+        model = HPWREN_Net()
     else:
         print("Invalid dataset")
         exit(0)
