@@ -161,7 +161,7 @@ def load_data(args, dataset_name):
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, data_dir, args.partition_method,
                                 args.partition_label, args.partition_alpha, args.partition_secondary,
-                                args.partition_mis_cls, args.partition_max_cls,
+                                args.partition_min_cls, args.partition_max_cls,
                                 args.client_num_in_total, args.batch_size,
                                 args.data_size_per_client)
         print(
